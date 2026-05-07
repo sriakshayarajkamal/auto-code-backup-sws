@@ -1,121 +1,96 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from 'react'
+import UploadZone from './components/UploadZone'
+import FileList from './components/FileList'
+import NotificationBell from './components/NotificationBell'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('upload')
+  const [notifications, setNotifications] = useState([])
+  const [files, setFiles] = useState([])
+
+  // Fetch notifications from backend on load
+  const fetchNotifications = async () => {
+    const res = await fetch('/api/notifications')
+    const data = await res.json()
+    setNotifications(data)
+  }
+
+  // Fetch uploaded files from backend
+  const fetchFiles = async () => {
+    const res = await fetch('/api/files')
+    const data = await res.json()
+    setFiles(data)
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+    fetchFiles()
+
+    // Connect to SSE stream for real-time notifications
+    const eventSource = new EventSource('/api/notifications/stream')
+    eventSource.addEventListener('notification', (e) => {
+      const newNotif = JSON.parse(e.data)
+      setNotifications(prev => [newNotif, ...prev])
+      fetchFiles()
+    })
+
+    return () => eventSource.close()
+  }, [])
+
+  const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-blue-700 text-white px-6 py-4 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+            <span className="text-blue-700 font-bold text-sm">S</span>
+          </div>
+          <h1 className="text-xl font-semibold tracking-wide">SWS Document Management</h1>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <NotificationBell
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onUpdate={fetchNotifications}
+        />
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-200 px-6">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('upload')}
+            className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'upload'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Upload Documents
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'documents'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Documents ({files.length})
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {activeTab === 'upload' ? (
+          <UploadZone onUploadComplete={fetchFiles} onNotification={fetchNotifications} />
+        ) : (
+          <FileList files={files} onRefresh={fetchFiles} />
+        )}
+      </main>
+    </div>
   )
 }
 
