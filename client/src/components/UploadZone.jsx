@@ -34,61 +34,50 @@ function UploadZone({ onUploadComplete, onNotification }) {
   }
 
   const uploadFiles = (items, isBulk) => {
-    items.forEach(item => {
-      const formData = new FormData()
-      formData.append('files', item.file)
+    // Send all files in one single request so backend can detect bulk (>3)
+    const formData = new FormData()
+    items.forEach(item => formData.append('files', item.file))
 
-      const xhr = new XMLHttpRequest()
+    // Set all to uploading
+    setFileItems(prev =>
+      prev.map(f => items.find(i => i.id === f.id) ? { ...f, status: 'uploading' } : f)
+    )
 
-      // Track upload progress for each file individually
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100)
-          setFileItems(prev =>
-            prev.map(f => f.id === item.id ? { ...f, progress: percent, status: 'uploading' } : f)
-          )
-        }
-      }
+    const xhr = new XMLHttpRequest()
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          setFileItems(prev =>
-            prev.map(f => f.id === item.id ? { ...f, progress: 100, status: 'complete' } : f)
-          )
-          if (!isBulk) {
-            onUploadComplete()
-            onNotification()
-          }
-        } else {
-          setFileItems(prev =>
-            prev.map(f => f.id === item.id ? { ...f, status: 'failed' } : f)
-          )
-        }
-      }
-
-      xhr.onerror = () => {
+    // Track overall progress and distribute to each file
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100)
         setFileItems(prev =>
-          prev.map(f => f.id === item.id ? { ...f, status: 'failed' } : f)
+          prev.map(f => items.find(i => i.id === f.id) ? { ...f, progress: percent } : f)
         )
       }
+    }
 
-      // Update status to uploading
-      setFileItems(prev =>
-        prev.map(f => f.id === item.id ? { ...f, status: 'uploading' } : f)
-      )
-
-      xhr.open('POST', '/api/upload')
-      xhr.send(formData)
-    })
-
-    // For bulk uploads, refresh after all done
-    if (isBulk) {
-      setTimeout(() => {
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        setFileItems(prev =>
+          prev.map(f => items.find(i => i.id === f.id) ? { ...f, progress: 100, status: 'complete' } : f)
+        )
+        setBulkToast(null)
         onUploadComplete()
         onNotification()
-        setBulkToast(null)
-      }, 3000)
+      } else {
+        setFileItems(prev =>
+          prev.map(f => items.find(i => i.id === f.id) ? { ...f, status: 'failed' } : f)
+        )
+      }
     }
+
+    xhr.onerror = () => {
+      setFileItems(prev =>
+        prev.map(f => items.find(i => i.id === f.id) ? { ...f, status: 'failed' } : f)
+      )
+    }
+
+    xhr.open('POST', '/api/upload')
+    xhr.send(formData)
   }
 
   const handleDrop = (e) => {
