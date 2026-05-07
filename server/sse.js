@@ -4,6 +4,8 @@
 
 const clients = new Set();
 
+// set , array [dont allow duplicates]
+
 // Called when a frontend client connects to /api/notifications/stream
 function addClient(res) {
   // Set headers to keep the connection open

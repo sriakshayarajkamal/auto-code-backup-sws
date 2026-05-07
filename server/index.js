@@ -12,6 +12,8 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
+
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -25,7 +27,6 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.get('/', (req, res) => {
   res.json({ message: 'SWS Document Management API is running' });
 });
-
 
 app.listen(PORT,() => {
     console.log(`Server running on http://localhost:${PORT}`);
